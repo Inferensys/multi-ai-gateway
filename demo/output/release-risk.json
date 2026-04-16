@@ -1,0 +1,26 @@
+{
+  "provider": "azure-openai",
+  "deployment": "gpt-5.4",
+  "output_text": "Hold.\n\nKey operational risks:\n- Session token rotation can create broad auth instability if refresh/invalidation behavior is wrong. Failures here tend to be immediate and user-visible.\n- Moving fraud scoring to an async queue adds timing, ordering, retry, and idempotency risk. That is especially concerning because a similar queueing bug previously caused duplicate captures.\n- The new payment retry branch directly touches money movement. Combined with async fraud decisions, it increases the chance of double charge, out-of-order authorization/capture, or inconsistent decline behavior.\n- 91% unit coverage is good, but it does not replace integrated failover validation.\n- No full-region failover test is a material gap. Under quarter-close traffic, failover and partial degradation scenarios are exactly where queue duplication, replay, and retry bugs tend to surface.\n\nWhy this should not ship today:\n- The blast radius includes authentication, fraud controls, and payments at the same time.\n- There is known historical precedent for the most relevant failure mode: duplicate captures from queue behavior.\n- Traffic is about to increase, reducing your margin for safe observation and rollback.\n\nShort mitigation plan:\n1. Run a targeted full-region failover test before launch, focused on queue drain/replay, payment idempotency, and token refresh behavior.\n2. Prove idempotency on payment capture/retry paths with replay tests and duplicate-message injection.\n3. Ship behind kill switches:\n   - disable async fraud queue and fall back to sync path\n   - disable new payment retry branch\n   - disable token rotation enforcement separately\n4. Do a canary rollout with real-time monitors for:\n   - duplicate captures\n   - auth refresh failures/session invalidation spikes\n   - fraud decision latency/backlog\n   - payment retry rate and capture variance\n5. Ensure rollback is fast and data-safe, including queue pausing and replay controls.\n\nIf leadership insists on launching today, only do so with the new payment retry branch and async fraud path dark-disabled by default, and enable them gradually after failover validation.",
+  "finish_reason": "stop",
+  "prompt_tokens": 113,
+  "completion_tokens": 415,
+  "total_tokens": 528,
+  "route": {
+    "selected_deployment": "gpt-5.4",
+    "fallback_chain": [
+      "gpt-5-mini"
+    ],
+    "rationale": "routing_mode=quality, risk_level=high, selected=gpt-5.4(quality=5,speed=2,cost=3)",
+    "routing_mode": "quality",
+    "risk_level": "high"
+  },
+  "attempts": [
+    {
+      "deployment": "gpt-5.4",
+      "status": "succeeded",
+      "latency_ms": 13531,
+      "error": null
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+<svg width="1180" height="520" viewBox="0 0 1180 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1180" height="520" rx="28" fill="#0E1726"/>
+  <rect x="36" y="36" width="1108" height="448" rx="22" fill="#111C30" stroke="#2A3C63"/>
+  <text x="74" y="96" fill="#F4F7FF" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="30">live gateway routing summary</text>
+  <text x="74" y="132" fill="#93A9D9" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="18">deterministic route policy, Azure-backed execution, explicit attempt trace</text>
+
+  <rect x="74" y="176" width="480" height="244" rx="18" fill="#13253D" stroke="#3B5F9A"/>
+  <text x="104" y="220" fill="#7EE0B5" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="22">fast-triage</text>
+  <text x="104" y="260" fill="#F4F7FF" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="20">deployment: gpt-5-mini</text>
+  <text x="104" y="296" fill="#F4F7FF" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="20">latency_ms: 20431</text>
+  <text x="104" y="332" fill="#F4F7FF" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="20">total_tokens: 614</text>
+  <text x="104" y="368" fill="#F4F7FF" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="20">fallbacks_used: 0</text>
+  <text x="104" y="404" fill="#93A9D9" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="18">mode=latency risk=low max_cost_tier=1</text>
+
+  <rect x="626" y="176" width="480" height="244" rx="18" fill="#2A1A28" stroke="#B85C8E"/>
+  <text x="656" y="220" fill="#FFB4D7" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="22">release-risk</text>
+  <text x="656" y="260" fill="#F4F7FF" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="20">deployment: gpt-5.4</text>
+  <text x="656" y="296" fill="#F4F7FF" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="20">latency_ms: 13531</text>
+  <text x="656" y="332" fill="#F4F7FF" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="20">total_tokens: 528</text>
+  <text x="656" y="368" fill="#F4F7FF" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="20">fallbacks_used: 0</text>
+  <text x="656" y="404" fill="#D2A6C0" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="18">mode=quality risk=high fallback=[gpt-5-mini]</text>
+</svg>

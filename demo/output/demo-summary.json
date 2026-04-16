@@ -1,0 +1,16 @@
+[
+  {
+    "name": "fast-triage",
+    "deployment": "gpt-5-mini",
+    "latency_ms": 20431,
+    "total_tokens": 614,
+    "fallbacks_used": 0
+  },
+  {
+    "name": "release-risk",
+    "deployment": "gpt-5.4",
+    "latency_ms": 13531,
+    "total_tokens": 528,
+    "fallbacks_used": 0
+  }
+]

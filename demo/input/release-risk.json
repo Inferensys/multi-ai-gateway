@@ -1,0 +1,18 @@
+{
+  "routing_mode": "quality",
+  "risk_level": "high",
+  "requires_json": false,
+  "metadata": {
+    "scenario": "release-risk"
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a release review assistant. Give a direct ship or hold recommendation, then justify it with operational risks and a short mitigation plan."
+    },
+    {
+      "role": "user",
+      "content": "Review this rollout note and decide whether to ship. The release changes session token rotation, moves fraud scoring to an async queue, and adds a new payment retry branch. Unit coverage is 91%, but no full-region failover test has been run. A similar queueing bug caused duplicate captures in the previous quarter. Finance leadership wants the launch today because quarter-close traffic starts tomorrow."
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "provider": "azure-openai",
+  "deployment": "gpt-5-mini",
+  "output_text": "- What happened: Payment API p95 latency jumped from 420ms \u2192 1480ms in the last 10 minutes; checkout success rate fell from 98.8% \u2192 94.9%. No indicators of data loss.\n- Recent change: pricing-cache refresh worker was deployed at 03:20 UTC \u2014 likely suspect given timing.\n- Impact: user-facing checkout slowdowns and increased failures (~3.9% absolute drop in success rate).\n- Immediate triage (start now): check pricing-cache worker logs/metrics (errors, CPU, memory, DB calls), correlate Payment API traces/errors to the worker deploy timestamp, and check Payment API pod metrics and SLO/timeout errors. Restart or roll back the worker if correlation is strong.\n- Monitor & escalate: watch p95 and success rate closely for 15 minutes after any remediation; if no improvement, escalate to SRE and the pricing-cache owner and consider full rollback.",
+  "finish_reason": "stop",
+  "prompt_tokens": 94,
+  "completion_tokens": 520,
+  "total_tokens": 614,
+  "route": {
+    "selected_deployment": "gpt-5-mini",
+    "fallback_chain": [],
+    "rationale": "routing_mode=latency, risk_level=low, max_cost_tier=1, selected=gpt-5-mini(quality=2,speed=5,cost=1)",
+    "routing_mode": "latency",
+    "risk_level": "low"
+  },
+  "attempts": [
+    {
+      "deployment": "gpt-5-mini",
+      "status": "succeeded",
+      "latency_ms": 20431,
+      "error": null
+    }
+  ]
+}

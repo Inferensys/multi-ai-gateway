@@ -1,384 +1,182 @@
-# Multi-AI Gateway
+# multi-ai-gateway
 
-Unified **LLM routing gateway** with intelligent model selection, automatic failover, budget controls, and unified API across OpenAI, Anthropic, Google, and self-hosted models.
+Route first. Execute second.
 
-Solves the problem of managing multiple AI providers in production without vendor lock-in or brittle provider switching.
+This repo is a narrow gateway for teams that already know one thing: model routing should be explainable and deterministic before a provider call is made.
 
-## The Problem
+The router in this project decides which deployment should run a request from a small set of application-owned inputs:
 
-Teams running AI in production face provider complexity:
+- `routing_mode`: latency, balanced, or quality
+- `risk_level`: low, medium, or high
+- `requires_json`
+- optional cost cap and deployment allow-list
+
+After that decision is made, the gateway executes the request against Azure OpenAI and records the route trace and attempt history.
+
+## What Runs Here
+
+- deterministic route policy
+- Azure-backed execution across multiple deployments
+- fallback chain when the primary deployment fails
+- FastAPI surface for a unified completion endpoint
+- CLI for replaying routed scenarios
+- checked-in live demo artifacts showing route choice and served output
+
+This is not a universal proxy for every model API on the market. It is the part that matters first: route policy you can defend in a design review.
+
+## Live Demo
+
+The checked-in demo set was generated against Azure OpenAI with:
+
+- `gpt-5-mini` as the fast lane
+- `gpt-5.4` as the quality lane
+
+Scenarios:
+
+- `fast-triage`: low-risk incident summary with a strict cost cap
+- `release-risk`: high-risk release review that routes to the heavier model
+
+Artifacts:
+
+- `demo/input/fast-triage.json`
+- `demo/input/release-risk.json`
+- `demo/output/fast-triage.json`
+- `demo/output/release-risk.json`
+- `demo/output/demo-summary.json`
+
+Rendered route captures:
+
+![Gateway route summary](assets/demo-summary-card.svg)
+![Release risk route](assets/release-risk-route.svg)
+
+Observed summary:
+
+```json
+[
+  {
+    "name": "fast-triage",
+    "deployment": "gpt-5-mini",
+    "latency_ms": 20431,
+    "total_tokens": 614,
+    "fallbacks_used": 0
+  },
+  {
+    "name": "release-risk",
+    "deployment": "gpt-5.4",
+    "latency_ms": 13531,
+    "total_tokens": 528,
+    "fallbacks_used": 0
+  }
+]
+```
+
+Route trace shape:
+
+```json
+{
+  "selected_deployment": "gpt-5.4",
+  "fallback_chain": ["gpt-5-mini"],
+  "rationale": "routing_mode=quality, risk_level=high, selected=gpt-5.4(quality=5,speed=2,cost=3)"
+}
+```
+
+## Python API
 
 ```python
-# Without a gateway
-if use_openai:
-    import openai
-    response = openai.chat.completions.create(...)
-elif use_anthropic:
-    import anthropic
-    response = anthropic.messages.create(...)
-# Different APIs, different error handling, different retry logic
+from multi_ai_gateway import (
+    AzureChatProvider,
+    Gateway,
+    GatewayRequest,
+    Settings,
+    ChatMessage,
+)
+
+settings = Settings.from_env()
+gateway = Gateway(
+    provider=AzureChatProvider(settings),
+    deployments=settings.default_deployments(),
+)
+
+response = gateway.complete(
+    GatewayRequest(
+        messages=[
+            ChatMessage(role="system", content="Respond in 4 bullets max."),
+            ChatMessage(role="user", content="Summarize the incident for the on-call."),
+        ],
+        routing_mode="latency",
+        risk_level="low",
+        max_cost_tier=1,
+    )
+)
+
+print(response.deployment)
+print(response.route.rationale)
+print(response.output_text)
 ```
 
-Issues:
-- Inconsistent APIs across providers
-- No automatic failover when one provider is down
-- Can't optimize cost/performance by routing to best model
-- Rate limits hit unexpectedly
-- No unified observability
+## API
 
-## What This Provides
-
-```
-           Client Requests
-                  ↓
-        ┌─────────────────────┐
-        │   Multi-AI Gateway  │
-        │  - Router/Smart     │
-        │  - Load Balancer    │
-        │  - Fallback Engine  │
-        └──────────┬──────────┘
-                   ↓
-    ┌──────────────┼──────────────┐
-    ↓              ↓              ↓
- OpenAI      Anthropic      Self-Hosted
-  GPT-4      Claude-3      Llama/Qwen
-```
-
-## Quick Start
+Install:
 
 ```bash
-pip install multi-ai-gateway
+uv sync --extra dev
 ```
 
-```python
-from multi_ai_gateway import Gateway, RoutingStrategy
+Start the gateway:
 
-# Initialize gateway with providers
-gateway = Gateway(providers=[
-    {
-        "name": "openai",
-        "api_key": os.getenv("OPENAI_API_KEY"),
-        "models": ["gpt-4", "gpt-4o", "gpt-3.5-turbo"],
-        "priority": 1
-    },
-    {
-        "name": "anthropic", 
-        "api_key": os.getenv("ANTHROPIC_API_KEY"),
-        "models": ["claude-3-opus", "claude-3-sonnet"],
-        "priority": 2
-    },
-    {
-        "name": "ollama",
-        "base_url": "http://localhost:11434",
-        "models": ["llama3", "mixtral"],
-        "priority": 3
-    }
-])
+```bash
+export AZURE_OPENAI_ENDPOINT="https://<resource>.openai.azure.com/"
+export AZURE_OPENAI_API_KEY="<key>"
+export AZURE_OPENAI_API_VERSION="2025-04-01-preview"
+export MULTI_AI_GATEWAY_FAST_DEPLOYMENT="gpt-5-mini"
+export MULTI_AI_GATEWAY_QUALITY_DEPLOYMENT="gpt-5.4"
 
-# Unified API regardless of provider
-response = gateway.complete(
-    messages=[
-        {"role": "user", "content": "Explain quantum computing"}
-    ],
-    model="auto",  # Let gateway choose
-    strategy=RoutingStrategy.CHEAPEST
-)
-
-print(response.content)
-print(response.model)      # Which model actually served it
-print(response.provider)   # Which provider
-print(response.latency_ms) # Response time
+uv run uvicorn multi_ai_gateway.main:app --app-dir src --reload
 ```
 
-## Routing Strategies
+Create a completion:
 
-### Cost-Optimized
-
-```python
-response = gateway.complete(
-    messages=messages,
-    max_cost_per_1k_tokens=0.01,
-    strategy=RoutingStrategy.CHEAPEST
-)
+```bash
+curl -sS http://127.0.0.1:8000/v1/complete \
+  -H "content-type: application/json" \
+  -d @demo/input/fast-triage.json
 ```
 
-### Latency-Optimized
+## CLI
 
-```python
-response = gateway.complete(
-    messages=messages,
-    max_latency_ms=2000,
-    strategy=RoutingStrategy.FASTEST
-)
+```bash
+uv run mag complete \
+  --input-file demo/input/release-risk.json \
+  --out /tmp/release-risk.json
 ```
 
-### Quality-Optimized
+Regenerate the checked-in live demo:
 
-```python
-response = gateway.complete(
-    messages=messages,
-    task_complexity="high",  # Routes to best model
-    strategy=RoutingStrategy.BEST_QUALITY
-)
+```bash
+uv run python scripts/run_live_demo.py
 ```
 
-### Fallback Chain
+## Design Notes
 
-```python
-response = gateway.complete(
-    messages=messages,
-    fallback_chain=[
-        {"model": "gpt-4", "provider": "openai"},
-        {"model": "claude-3-opus", "provider": "anthropic"},
-        {"model": "llama3", "provider": "ollama"}
-    ]
-)
+- route selection is local and deterministic
+- execution is provider-backed and replaceable
+- route rationale is preserved in the response
+- fallback is explicit and ordered
+
+If the provider fails on every route attempt, the gateway raises instead of hiding the failure behind an invented answer.
+
+## Files Worth Reading
+
+- `src/multi_ai_gateway/router.py`
+- `src/multi_ai_gateway/gateway.py`
+- `src/multi_ai_gateway/azure_provider.py`
+- `src/multi_ai_gateway/main.py`
+- `scripts/run_live_demo.py`
+- `docs/architecture.md`
+- `docs/azure-foundry.md`
+
+## Tests
+
+```bash
+uv run pytest -q
 ```
-
-## Features
-
-### Automatic Failover
-
-```python
-# Built-in retry and fallback
-gateway.complete(
-    messages=messages,
-    retry_policy={
-        "max_retries": 3,
-        "backoff": "exponential",
-        "retry_on": ["rate_limit", "timeout", "server_error"]
-    },
-    failover_threshold=2  # Failover after 2 failures
-)
-```
-
-### Load Balancing
-
-```python
-# Distribute across multiple instances
-gateway = Gateway(
-    providers=[
-        {"name": "openai_1", "api_key": "...", "weight": 0.5},
-        {"name": "openai_2", "api_key": "...", "weight": 0.5}
-    ],
-    load_balancer="round_robin"  # or "least_connections", "weighted"
-)
-```
-
-### Budget Controls
-
-```python
-# Per-key or per-app budget tracking
-gateway.set_budget(
-    api_key="pk_abc123",
-    daily_limit=100.0,  # USD
-    monthly_limit=2000.0,
-    alert_threshold=0.8
-)
-
-# Check before routing
-if not gateway.check_budget("pk_abc123"):
-    raise BudgetExceededError()
-```
-
-### Rate Limit Management
-
-```python
-# Token bucket rate limiting
-gateway.configure_rate_limits({
-    "openai": {
-        "requests_per_minute": 60,
-        "tokens_per_minute": 90000
-    },
-    "anthropic": {
-        "requests_per_minute": 40,
-        "tokens_per_minute": 80000
-    }
-})
-```
-
-### Streaming Support
-
-```python
-# Unified streaming interface
-for chunk in gateway.complete_stream(
-    messages=messages,
-    model="auto"
-):
-    print(chunk.content, end="")
-```
-
-## Provider Adapters
-
-### Supported Providers
-
-| Provider | Models | Streaming | Tools | Vision |
-|----------|--------|-----------|-------|--------|
-| OpenAI | GPT-4, GPT-4o, GPT-3.5 | ✅ | ✅ | ✅ |
-| Anthropic | Claude 3 Opus/Sonnet/Haiku | ✅ | ✅ | ✅ |
-| Google | Gemini Pro/Flash | ✅ | ✅ | ✅ |
-| Azure OpenAI | GPT-4, GPT-3.5 | ✅ | ✅ | ✅ |
-| AWS Bedrock | Claude, Llama, Titan | ✅ | ✅ | ✅ |
-| Cohere | Command R/+ | ✅ | ✅ | ❌ |
-| Ollama | Local models | ✅ | ✅ | ❌ |
-| vLLM | Self-hosted | ✅ | ✅ | ✅ |
-
-### Custom Provider
-
-```python
-from multi_ai_gateway.providers import BaseProvider
-
-class CustomProvider(BaseProvider):
-    def complete(self, messages, model, **kwargs):
-        # Implement provider-specific logic
-        return CompletionResponse(
-            content=...,
-            model=model,
-            usage=TokenUsage(...)
-        )
-
-gateway.register_provider("custom", CustomProvider())
-```
-
-## Configuration
-
-```yaml
-# gateway.yaml
-providers:
-  openai:
-    api_key: ${OPENAI_API_KEY}
-    organization: ${OPENAI_ORG}
-    default_model: gpt-4o
-    models:
-      gpt-4o:
-        context_window: 128000
-        cost_per_1k_input: 0.005
-        cost_per_1k_output: 0.015
-  
-  anthropic:
-    api_key: ${ANTHROPIC_API_KEY}
-    default_model: claude-3-sonnet
-    models:
-      claude-3-opus:
-        context_window: 200000
-        cost_per_1k_input: 0.015
-        cost_per_1k_output: 0.075
-
-routing:
-  default_strategy: cost_optimized
-  enabled_strategies:
-    - cheapest
-    - fastest
-    - best_quality
-  
-  fallbacks:
-    enabled: true
-    max_retries: 3
-    providers:
-      - anthropic
-      - openai
-      - ollama
-
-cache:
-  enabled: true
-  ttl_seconds: 300
-  redis_url: redis://localhost:6379
-
-observability:
-  enabled: true
-  log_requests: true
-  log_responses: false
-  metrics_endpoint: http://localhost:9090
-
-limits:
-  global:
-    max_requests_per_minute: 1000
-    max_tokens_per_minute: 100000
-  
-  per_key:
-    default:
-      daily_budget: 100
-      monthly_budget: 2000
-```
-
-## Server Mode
-
-```python
-from multi_ai_gateway.server import GatewayServer
-
-# Start as standalone server
-server = GatewayServer(
-    config="gateway.yaml",
-    host="0.0.0.0",
-    port=8080
-)
-server.run()
-```
-
-Now use standard OpenAI client pointing to your gateway:
-
-```python
-import openai
-
-client = openai.OpenAI(
-    base_url="http://localhost:8080/v1",
-    api_key="your-gateway-api-key"
-)
-
-# Routes internally to best available provider
-response = client.chat.completions.create(
-    model="gpt-4",  # Actually routes to available equivalent
-    messages=[...]
-)
-```
-
-## Smart Routing
-
-```python
-# Content-based routing
-gateway.configure_router({
-    "rules": [
-        {
-            "if": "task_type == 'coding'",
-            "then": "prefer claude-3-sonnet"
-        },
-        {
-            "if": "input_tokens > 100000",
-            "then": "use claude-3-opus"
-        },
-        {
-            "if": "budget_per_request < 0.01",
-            "then": "use gpt-3.5-turbo"
-        }
-    ]
-})
-```
-
-## Health Checks
-
-```python
-# Automatic health monitoring
-gateway.enable_health_checks(
-    interval_seconds=30,
-    timeout_seconds=5
-)
-
-# Check provider health
-health = gateway.health_check()
-# {
-#   "openai": {"status": "healthy", "latency_ms": 120},
-#   "anthropic": {"status": "degraded", "latency_ms": 3000},
-#   "ollama": {"status": "healthy", "latency_ms": 50}
-# }
-```
-
-## Requirements
-
-- Python 3.10+
-- Provider SDKs as needed (openai, anthropic, google-generativeai)
-- Redis (optional, for caching)
-- Prometheus Client (optional, for metrics)
-
-## License
-
-MIT

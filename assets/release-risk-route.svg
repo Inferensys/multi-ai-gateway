@@ -1,0 +1,23 @@
+<svg width="1180" height="560" viewBox="0 0 1180 560" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1180" height="560" rx="28" fill="#FBF8F4"/>
+  <rect x="42" y="40" width="1096" height="480" rx="24" fill="#FFFFFF" stroke="#DDD3C7"/>
+  <text x="82" y="98" fill="#2C241D" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="24">demo/output/release-risk.json</text>
+  <rect x="82" y="132" width="1016" height="338" rx="18" fill="#141923"/>
+  <text x="116" y="178" fill="#93C5FD" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="19">{</text>
+  <text x="148" y="212" fill="#7DD3FC" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="19">"deployment"</text>
+  <text x="286" y="212" fill="#E5E7EB" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="19">: </text>
+  <text x="312" y="212" fill="#FDE68A" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="19">"gpt-5.4"</text>
+  <text x="148" y="246" fill="#7DD3FC" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="19">"route.selected_deployment"</text>
+  <text x="462" y="246" fill="#E5E7EB" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="19">: </text>
+  <text x="488" y="246" fill="#FDE68A" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="19">"gpt-5.4"</text>
+  <text x="148" y="280" fill="#7DD3FC" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="19">"route.fallback_chain"</text>
+  <text x="416" y="280" fill="#E5E7EB" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="19">: ["gpt-5-mini"]</text>
+  <text x="148" y="314" fill="#7DD3FC" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="19">"route.rationale"</text>
+  <text x="350" y="314" fill="#E5E7EB" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="19">: "routing_mode=quality, risk_level=high,</text>
+  <text x="148" y="344" fill="#BFD0F5" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="18">selected=gpt-5.4(quality=5,speed=2,cost=3)"</text>
+  <text x="148" y="388" fill="#7DD3FC" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="19">"attempts"</text>
+  <text x="266" y="388" fill="#E5E7EB" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="19">: [{ "deployment": "gpt-5.4", "status": "succeeded",</text>
+  <text x="148" y="418" fill="#BFD0F5" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="18">"latency_ms": 13531 }]</text>
+  <text x="148" y="456" fill="#A7F3D0" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="18">Output starts: "Hold. Key operational risks: session token rotation ..."</text>
+  <text x="116" y="496" fill="#93C5FD" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="19">}</text>
+</svg>

@@ -1,0 +1,19 @@
+{
+  "routing_mode": "latency",
+  "risk_level": "low",
+  "requires_json": false,
+  "max_cost_tier": 1,
+  "metadata": {
+    "scenario": "fast-triage"
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are an incident triage assistant. Respond in 5 concise bullets max."
+    },
+    {
+      "role": "user",
+      "content": "Summarize this alert for the on-call engineer: Payment API p95 latency rose from 420ms to 1480ms in the last 10 minutes. Checkout success rate dipped from 98.8% to 94.9%. No data loss indicators. Recent deploy: pricing-cache refresh worker at 03:20 UTC."
+    }
+  ]
+}
