@@ -15,8 +15,11 @@ class Gateway:
         self._deployments = deployments
         self._router = router or Router()
 
+    def preview(self, request: GatewayRequest):
+        return self._router.choose(request, self._deployments)
+
     def complete(self, request: GatewayRequest) -> GatewayResponse:
-        decision = self._router.choose(request, self._deployments)
+        decision = self.preview(request)
         attempt_names = [decision.selected_deployment, *decision.fallback_chain]
         deployment_index = {deployment.name: deployment for deployment in self._deployments}
         attempts: list[RouteAttempt] = []

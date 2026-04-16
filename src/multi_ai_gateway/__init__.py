@@ -8,13 +8,15 @@ from .models import (
     ChatMessage,
     GatewayRequest,
     GatewayResponse,
+    RequestContext,
     RouteAttempt,
     RouteDecision,
     RoutingMode,
 )
+from .scenarios import IncidentTriageScenario, ReleaseReviewScenario, request_from_payload
 from .router import Router
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 __all__ = [
     "ChatMessage",
@@ -23,11 +25,15 @@ __all__ = [
     "GatewayExecutionError",
     "GatewayRequest",
     "GatewayResponse",
+    "IncidentTriageScenario",
+    "ReleaseReviewScenario",
+    "RequestContext",
     "RouteAttempt",
     "RouteDecision",
     "Router",
     "RoutingMode",
     "Settings",
+    "request_from_payload",
 ]
 
 

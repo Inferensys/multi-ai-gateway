@@ -2,15 +2,15 @@
   {
     "name": "fast-triage",
     "deployment": "gpt-5-mini",
-    "latency_ms": 20431,
-    "total_tokens": 614,
+    "latency_ms": 18185,
+    "total_tokens": 710,
     "fallbacks_used": 0
   },
   {
     "name": "release-risk",
     "deployment": "gpt-5.4",
-    "latency_ms": 13531,
-    "total_tokens": 528,
+    "latency_ms": 11327,
+    "total_tokens": 596,
     "fallbacks_used": 0
   }
 ]

@@ -33,5 +33,8 @@ Keep these local:
 - deployment ranking rules
 - fallback order
 - rationale string or route trace
+- scenario-to-request compilation for the operator workflows you care about
 
 Swap providers if you need to. Do not move the route decision into the provider client unless you are willing to give up auditability.
+
+If operators routinely ask for a route preview before they execute, that preview surface belongs here too.

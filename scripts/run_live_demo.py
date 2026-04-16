@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from multi_ai_gateway import ChatMessage, Gateway, GatewayRequest, Settings
+from multi_ai_gateway import Gateway, Settings, request_from_payload
 from multi_ai_gateway.azure_provider import AzureChatProvider
 
 
@@ -30,15 +30,7 @@ def main() -> None:
     for name, filename in scenarios:
         print(f"[{name}] routing request")
         payload = json.loads((INPUT_DIR / filename).read_text(encoding="utf-8"))
-        request = GatewayRequest(
-            messages=[ChatMessage(role=item["role"], content=item["content"]) for item in payload["messages"]],
-            routing_mode=payload.get("routing_mode", "balanced"),
-            risk_level=payload.get("risk_level", "medium"),
-            requires_json=payload.get("requires_json", False),
-            max_cost_tier=payload.get("max_cost_tier"),
-            allowed_deployments=payload.get("allowed_deployments"),
-            metadata=payload.get("metadata", {}),
-        )
+        request = request_from_payload(payload)
         response = gateway.complete(request)
         artifact = {
             "provider": response.provider,
@@ -54,6 +46,9 @@ def main() -> None:
                 "rationale": response.route.rationale,
                 "routing_mode": response.route.routing_mode,
                 "risk_level": response.route.risk_level,
+                "policy_name": response.route.policy_name,
+                "reason_codes": response.route.reason_codes,
+                "why_not_lower_tier": response.route.why_not_lower_tier,
             },
             "attempts": [
                 {

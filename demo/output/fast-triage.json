@@ -1,23 +1,33 @@
 {
   "provider": "azure-openai",
   "deployment": "gpt-5-mini",
-  "output_text": "- What happened: Payment API p95 latency jumped from 420ms \u2192 1480ms in the last 10 minutes; checkout success rate fell from 98.8% \u2192 94.9%. No indicators of data loss.\n- Recent change: pricing-cache refresh worker was deployed at 03:20 UTC \u2014 likely suspect given timing.\n- Impact: user-facing checkout slowdowns and increased failures (~3.9% absolute drop in success rate).\n- Immediate triage (start now): check pricing-cache worker logs/metrics (errors, CPU, memory, DB calls), correlate Payment API traces/errors to the worker deploy timestamp, and check Payment API pod metrics and SLO/timeout errors. Restart or roll back the worker if correlation is strong.\n- Monitor & escalate: watch p95 and success rate closely for 15 minutes after any remediation; if no improvement, escalate to SRE and the pricing-cache owner and consider full rollback.",
+  "output_text": "- Likely cause: the pricing-cache refresh worker deployed at 03:20 UTC correlates with the p95 jump and checkout drop \u2014 probable cache stampede or backend (DB/Redis) overload causing higher latencies and transient failures. Impact remains low, no data loss.\n- Immediate next actions (do now): pause/rollback the pricing-cache worker; verify payment-api error/log traces for timeout/502/5xx; check cache hit ratio and refresh rate, DB CPU, connection count, and Redis latency/blocked clients.\n- Who owns & who to page: payment-api on-call + caching/worker team (and DB/Redis infra if metrics show resource saturation).\n- Short-term mitigations: throttle or add jitter to refreshes, revert worker, scale cache/DB or payment-api replicas, increase client-side retry/timeouts if safe.\n- Follow-up actions: gather spans/traces and slow query logs, correlate timestamps with deployment, implement refresh backoff/jitter and circuit-breaker, and create postmortem with SLO impact and fixes.",
   "finish_reason": "stop",
-  "prompt_tokens": 94,
-  "completion_tokens": 520,
-  "total_tokens": 614,
+  "prompt_tokens": 103,
+  "completion_tokens": 607,
+  "total_tokens": 710,
   "route": {
     "selected_deployment": "gpt-5-mini",
     "fallback_chain": [],
-    "rationale": "routing_mode=latency, risk_level=low, max_cost_tier=1, selected=gpt-5-mini(quality=2,speed=5,cost=1)",
+    "rationale": "use_case=incident_triage, routing_mode=latency, risk_level=low, max_cost_tier=1, policy=cheap-lane-triage, selected=gpt-5-mini(quality=2,speed=5,cost=1)",
     "routing_mode": "latency",
-    "risk_level": "low"
+    "risk_level": "low",
+    "policy_name": "cheap-lane-triage",
+    "reason_codes": [
+      "use_case:incident_triage",
+      "service:payment-api",
+      "impact:low",
+      "selected:gpt-5-mini",
+      "routing_mode:latency",
+      "risk_level:low"
+    ],
+    "why_not_lower_tier": []
   },
   "attempts": [
     {
       "deployment": "gpt-5-mini",
       "status": "succeeded",
-      "latency_ms": 20431,
+      "latency_ms": 18185,
       "error": null
     }
   ]

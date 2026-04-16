@@ -7,7 +7,7 @@ from pathlib import Path
 from .azure_provider import AzureChatProvider
 from .config import Settings
 from .gateway import Gateway
-from .models import ChatMessage, GatewayRequest
+from .scenarios import request_from_payload
 
 
 def main() -> None:
@@ -18,9 +18,15 @@ def main() -> None:
     complete.add_argument("--input-file", required=True)
     complete.add_argument("--out", required=True)
 
+    preview = subparsers.add_parser("preview", help="Preview the selected deployment without executing.")
+    preview.add_argument("--input-file", required=True)
+    preview.add_argument("--out", required=True)
+
     args = parser.parse_args()
     if args.command == "complete":
         _run_complete(args)
+    if args.command == "preview":
+        _run_preview(args)
 
 
 def _run_complete(args: argparse.Namespace) -> None:
@@ -30,15 +36,7 @@ def _run_complete(args: argparse.Namespace) -> None:
         provider=AzureChatProvider(settings),
         deployments=settings.default_deployments(),
     )
-    request = GatewayRequest(
-        messages=[ChatMessage(role=item["role"], content=item["content"]) for item in request_payload["messages"]],
-        routing_mode=request_payload.get("routing_mode", "balanced"),
-        risk_level=request_payload.get("risk_level", "medium"),
-        requires_json=request_payload.get("requires_json", False),
-        max_cost_tier=request_payload.get("max_cost_tier"),
-        allowed_deployments=request_payload.get("allowed_deployments"),
-        metadata=request_payload.get("metadata", {}),
-    )
+    request = request_from_payload(request_payload)
     response = gateway.complete(request)
     Path(args.out).write_text(
         json.dumps(
@@ -56,6 +54,9 @@ def _run_complete(args: argparse.Namespace) -> None:
                     "rationale": response.route.rationale,
                     "routing_mode": response.route.routing_mode,
                     "risk_level": response.route.risk_level,
+                    "policy_name": response.route.policy_name,
+                    "reason_codes": response.route.reason_codes,
+                    "why_not_lower_tier": response.route.why_not_lower_tier,
                 },
                 "attempts": [
                     {
@@ -66,6 +67,35 @@ def _run_complete(args: argparse.Namespace) -> None:
                     }
                     for attempt in response.attempts
                 ],
+            },
+            indent=2,
+            ensure_ascii=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _run_preview(args: argparse.Namespace) -> None:
+    request_payload = json.loads(Path(args.input_file).read_text(encoding="utf-8"))
+    settings = Settings.from_env()
+    gateway = Gateway(
+        provider=AzureChatProvider(settings),
+        deployments=settings.default_deployments(),
+    )
+    request = request_from_payload(request_payload)
+    decision = gateway.preview(request)
+    Path(args.out).write_text(
+        json.dumps(
+            {
+                "selected_deployment": decision.selected_deployment,
+                "fallback_chain": decision.fallback_chain,
+                "rationale": decision.rationale,
+                "routing_mode": decision.routing_mode,
+                "risk_level": decision.risk_level,
+                "policy_name": decision.policy_name,
+                "reason_codes": decision.reason_codes,
+                "why_not_lower_tier": decision.why_not_lower_tier,
             },
             indent=2,
             ensure_ascii=True,

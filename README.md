@@ -20,13 +20,20 @@ If the route choices in those files look defensible, the rest of the repo is doi
 
 ## The Routing Question
 
-The gateway decides from application-owned inputs:
+The gateway decides from application-owned inputs.
+
+At the low level that is still:
 
 - `routing_mode`
 - `risk_level`
 - `requires_json`
 - optional cost ceiling
 - optional deployment allow-list
+
+But the repo now exposes domain-shaped scenario inputs for the two workflows it actually demonstrates:
+
+- `incident_triage`
+- `release_review`
 
 That is enough to answer the question the repo actually cares about:
 
@@ -78,7 +85,11 @@ The most useful checked artifact is `demo/output/release-risk.json` because it c
   "route": {
     "selected_deployment": "gpt-5.4",
     "fallback_chain": ["gpt-5-mini"],
-    "rationale": "routing_mode=quality, risk_level=high, selected=gpt-5.4(quality=5,speed=2,cost=3)"
+    "policy_name": "high-blast-radius-review",
+    "why_not_lower_tier": [
+      "blast radius is money_movement",
+      "release reviews default to the heavier lane when risk is high"
+    ]
   }
 }
 ```
@@ -136,18 +147,40 @@ curl -sS http://127.0.0.1:8000/v1/complete \
   -d @demo/input/release-risk.json
 ```
 
+Preview the route without spending tokens:
+
+```bash
+curl -sS http://127.0.0.1:8000/v1/route-preview \
+  -H "content-type: application/json" \
+  -d @demo/input/release-risk.json
+```
+
+Use the scenario endpoints directly:
+
+```bash
+curl -sS http://127.0.0.1:8000/v1/scenarios/incident-triage \
+  -H "content-type: application/json" \
+  -d @demo/input/fast-triage.json
+```
+
 Or replay from the CLI:
+
+```bash
+uv run mag preview \
+  --input-file demo/input/release-risk.json \
+  --out /tmp/release-risk.preview.json
+```
 
 ```bash
 uv run mag complete \
   --input-file demo/input/release-risk.json \
-  --out /tmp/release-risk.json
+  --out /tmp/release-risk.response.json
 ```
 
 ## Python Entry Point
 
 ```python
-from multi_ai_gateway import AzureChatProvider, Gateway, GatewayRequest, Settings, ChatMessage
+from multi_ai_gateway import AzureChatProvider, Gateway, ReleaseReviewScenario, Settings
 
 settings = Settings.from_env()
 gateway = Gateway(
@@ -155,22 +188,39 @@ gateway = Gateway(
     deployments=settings.default_deployments(),
 )
 
-response = gateway.complete(
-    GatewayRequest(
-        routing_mode="quality",
-        risk_level="high",
-        messages=[
-            ChatMessage(
-                role="system",
-                content="Give a direct ship or hold recommendation with operational risks.",
-            ),
-            ChatMessage(role="user", content="Review the rollout note."),
-        ],
-    )
-)
+request = ReleaseReviewScenario(
+    release_id="REL-742",
+    system_scope="payments checkout",
+    change_summary=[
+        "session token rotation changed",
+        "fraud scoring moved to async queue",
+        "new payment retry branch added",
+    ],
+    evidence_gaps=["no full-region failover test"],
+    historical_failures=["duplicate-capture"],
+    timing_pressure="quarter-close traffic starts tomorrow",
+    blast_radius="money_movement",
+).to_gateway_request()
 
+decision = gateway.preview(request)
+response = gateway.complete(request)
+
+print(decision.policy_name)
+print(decision.why_not_lower_tier)
 print(response.deployment)
 print(response.route.rationale)
+```
+
+If you still want the lower-level interface, it remains available:
+
+```python
+from multi_ai_gateway import ChatMessage, GatewayRequest
+
+request = GatewayRequest(
+    messages=[ChatMessage(role="user", content="Summarize the incident.")],
+    routing_mode="latency",
+    risk_level="low",
+)
 ```
 
 ## Repo Map

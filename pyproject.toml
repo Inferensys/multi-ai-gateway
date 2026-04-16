@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "multi-ai-gateway"
-version = "0.2.0"
+version = "0.3.0"
 description = "Deterministic model routing gateway with Azure-backed execution and fallback tracing"
 readme = "README.md"
 license = {text = "MIT"}
