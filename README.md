@@ -1,55 +1,55 @@
 # multi-ai-gateway
 
-Route first. Execute second.
+This repo is about one control point:
 
-This repo is a narrow gateway for teams that already know one thing: model routing should be explainable and deterministic before a provider call is made.
+deciding when a request is safe to send through the cheap lane and when it needs the heavier model before you call any provider at all.
 
-The router in this project decides which deployment should run a request from a small set of application-owned inputs:
+The checked scenarios in this repo come from two different operator contexts:
 
-- `routing_mode`: latency, balanced, or quality
-- `risk_level`: low, medium, or high
-- `requires_json`
-- optional cost cap and deployment allow-list
+- a low-risk incident summary that should stay on the fast lane
+- a high-risk release review that should route to the heavier model because the blast radius is larger than the token bill
 
-After that decision is made, the gateway executes the request against Azure OpenAI and records the route trace and attempt history.
+## Open These First
 
-## What Runs Here
-
-- deterministic route policy
-- Azure-backed execution across multiple deployments
-- fallback chain when the primary deployment fails
-- FastAPI surface for a unified completion endpoint
-- CLI for replaying routed scenarios
-- checked-in live demo artifacts showing route choice and served output
-
-This is not a universal proxy for every model API on the market. It is the part that matters first: route policy you can defend in a design review.
-
-## Live Demo
-
-The checked-in demo set was generated against Azure OpenAI with:
-
-- `gpt-5-mini` as the fast lane
-- `gpt-5.4` as the quality lane
-
-Scenarios:
-
-- `fast-triage`: low-risk incident summary with a strict cost cap
-- `release-risk`: high-risk release review that routes to the heavier model
-
-Artifacts:
-
-- `demo/input/fast-triage.json`
 - `demo/input/release-risk.json`
-- `demo/output/fast-triage.json`
 - `demo/output/release-risk.json`
+- `demo/input/fast-triage.json`
 - `demo/output/demo-summary.json`
 
-Rendered route captures:
+If the route choices in those files look defensible, the rest of the repo is doing its job.
+
+## The Routing Question
+
+The gateway decides from application-owned inputs:
+
+- `routing_mode`
+- `risk_level`
+- `requires_json`
+- optional cost ceiling
+- optional deployment allow-list
+
+That is enough to answer the question the repo actually cares about:
+
+can this request be served cheaply without being irresponsible?
+
+The checked `release-risk` scenario answers no. It routes to `gpt-5.4` and leaves `gpt-5-mini` as fallback because the request touches session rotation, async fraud scoring, payment retry behavior, and a known duplicate-capture failure mode before quarter-close traffic.
+
+## What The Checked Run Shows
+
+The live run produced two outputs:
+
+- `fast-triage`
+  low risk, cost constrained, routed to `gpt-5-mini`
+
+- `release-risk`
+  high risk, quality lane selected, routed to `gpt-5.4`
+
+Rendered captures:
 
 ![Gateway route summary](assets/demo-summary-card.svg)
 ![Release risk route](assets/release-risk-route.svg)
 
-Observed summary:
+Summary from `demo/output/demo-summary.json`:
 
 ```json
 [
@@ -70,26 +70,84 @@ Observed summary:
 ]
 ```
 
-Route trace shape:
+The most useful checked artifact is `demo/output/release-risk.json` because it contains both the served answer and the route trace:
 
 ```json
 {
-  "selected_deployment": "gpt-5.4",
-  "fallback_chain": ["gpt-5-mini"],
-  "rationale": "routing_mode=quality, risk_level=high, selected=gpt-5.4(quality=5,speed=2,cost=3)"
+  "deployment": "gpt-5.4",
+  "route": {
+    "selected_deployment": "gpt-5.4",
+    "fallback_chain": ["gpt-5-mini"],
+    "rationale": "routing_mode=quality, risk_level=high, selected=gpt-5.4(quality=5,speed=2,cost=3)"
+  }
 }
 ```
 
-## Python API
+## Why The Route Stays Local
+
+This project is not trying to be a universal proxy.
+
+It exists because teams usually need to explain:
+
+- why an incident summary used the cheap lane
+- why a release review did not
+- what changed when a route changed
+- what fallback order was attempted
+
+Provider-side auto-routing cannot usually answer those questions in application terms. This repo can, because the policy stays in the router.
+
+## Run The Exact Scenarios
+
+Install:
+
+```bash
+uv sync --extra dev
+```
+
+Set Azure variables:
+
+```bash
+export AZURE_OPENAI_ENDPOINT="https://<resource>.openai.azure.com/"
+export AZURE_OPENAI_API_KEY="<key>"
+export AZURE_OPENAI_API_VERSION="2025-04-01-preview"
+export MULTI_AI_GATEWAY_FAST_DEPLOYMENT="gpt-5-mini"
+export MULTI_AI_GATEWAY_QUALITY_DEPLOYMENT="gpt-5.4"
+```
+
+Regenerate the checked demo:
+
+```bash
+uv run python scripts/run_live_demo.py
+```
+
+That will rewrite the JSON in `demo/output/`.
+
+## Run It As A Service
+
+```bash
+uv run uvicorn multi_ai_gateway.main:app --app-dir src --reload
+```
+
+Send the high-risk release scenario:
+
+```bash
+curl -sS http://127.0.0.1:8000/v1/complete \
+  -H "content-type: application/json" \
+  -d @demo/input/release-risk.json
+```
+
+Or replay from the CLI:
+
+```bash
+uv run mag complete \
+  --input-file demo/input/release-risk.json \
+  --out /tmp/release-risk.json
+```
+
+## Python Entry Point
 
 ```python
-from multi_ai_gateway import (
-    AzureChatProvider,
-    Gateway,
-    GatewayRequest,
-    Settings,
-    ChatMessage,
-)
+from multi_ai_gateway import AzureChatProvider, Gateway, GatewayRequest, Settings, ChatMessage
 
 settings = Settings.from_env()
 gateway = Gateway(
@@ -99,83 +157,43 @@ gateway = Gateway(
 
 response = gateway.complete(
     GatewayRequest(
+        routing_mode="quality",
+        risk_level="high",
         messages=[
-            ChatMessage(role="system", content="Respond in 4 bullets max."),
-            ChatMessage(role="user", content="Summarize the incident for the on-call."),
+            ChatMessage(
+                role="system",
+                content="Give a direct ship or hold recommendation with operational risks.",
+            ),
+            ChatMessage(role="user", content="Review the rollout note."),
         ],
-        routing_mode="latency",
-        risk_level="low",
-        max_cost_tier=1,
     )
 )
 
 print(response.deployment)
 print(response.route.rationale)
-print(response.output_text)
 ```
 
-## API
-
-Install:
-
-```bash
-uv sync --extra dev
-```
-
-Start the gateway:
-
-```bash
-export AZURE_OPENAI_ENDPOINT="https://<resource>.openai.azure.com/"
-export AZURE_OPENAI_API_KEY="<key>"
-export AZURE_OPENAI_API_VERSION="2025-04-01-preview"
-export MULTI_AI_GATEWAY_FAST_DEPLOYMENT="gpt-5-mini"
-export MULTI_AI_GATEWAY_QUALITY_DEPLOYMENT="gpt-5.4"
-
-uv run uvicorn multi_ai_gateway.main:app --app-dir src --reload
-```
-
-Create a completion:
-
-```bash
-curl -sS http://127.0.0.1:8000/v1/complete \
-  -H "content-type: application/json" \
-  -d @demo/input/fast-triage.json
-```
-
-## CLI
-
-```bash
-uv run mag complete \
-  --input-file demo/input/release-risk.json \
-  --out /tmp/release-risk.json
-```
-
-Regenerate the checked-in live demo:
-
-```bash
-uv run python scripts/run_live_demo.py
-```
-
-## Design Notes
-
-- route selection is local and deterministic
-- execution is provider-backed and replaceable
-- route rationale is preserved in the response
-- fallback is explicit and ordered
-
-If the provider fails on every route attempt, the gateway raises instead of hiding the failure behind an invented answer.
-
-## Files Worth Reading
+## Repo Map
 
 - `src/multi_ai_gateway/router.py`
-- `src/multi_ai_gateway/gateway.py`
-- `src/multi_ai_gateway/azure_provider.py`
-- `src/multi_ai_gateway/main.py`
-- `scripts/run_live_demo.py`
-- `docs/architecture.md`
-- `docs/azure-foundry.md`
+  Ranking logic, rationale construction, fallback order.
 
-## Tests
+- `src/multi_ai_gateway/gateway.py`
+  Execution loop and attempt trace handling.
+
+- `src/multi_ai_gateway/azure_provider.py`
+  Azure-backed completion path.
+
+- `demo/README.md`
+  How to inspect the two checked scenarios.
+
+- `docs/routing-playbook.md`
+  When this routing style is useful and where it should stop.
+
+- `docs/azure-foundry.md`
+  Deployment split used for the live run.
+
+## Verify
 
 ```bash
 uv run pytest -q
